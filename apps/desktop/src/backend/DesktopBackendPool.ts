@@ -2,7 +2,7 @@
 // point for the concurrent-Windows+WSL-backend feature; see the design
 // notes below before extending it.
 //
-// Current state (step 5):
+// Current state:
 //   - `DesktopBackendManager.ts` exposes a per-instance factory
 //     (`makeBackendInstance(spec)`); the pool calls it once for the
 //     Windows primary at startup, and `DesktopWslBackend.reconcile`
@@ -17,22 +17,33 @@
 //     registered instance gets its own child scope, so unregister can
 //     stop it cleanly without tearing down the pool. The primary's id
 //     refuses unregister.
-//   - Consumers (window/wsl IPC, lifecycle hooks, telemetry) read the
-//     primary instance off `pool.primary`. There is no longer a separate
-//     `DesktopBackendManager` service in the layer graph.
 //   - Settings: `wslBackendEnabled: boolean` + `wslDistro: string | null`.
 //     The legacy `wslMode: "local" | "wsl"` swap setting is migrated on
-//     load. IPC is `setWslBackendEnabled(boolean)` + `setWslDistro(...)`,
-//     both of which persist and then call the orchestrator's reconcile.
+//     load. IPC surface is `setWslBackendEnabled(boolean)` +
+//     `setWslDistro(string | null)`; both persist and then call the
+//     orchestrator's reconcile. No swap, no rollback, primary stays up.
+//   - `getLocalEnvironmentBootstraps()` (plural) returns one entry per
+//     pool instance currently registered with bootstrap info. The
+//     primary keeps the "primary" id; WSL instances are "wsl:default"
+//     or "wsl:<distro>".
+//   - `pickFolder` accepts an optional `targetEnvironmentId`. Omitting
+//     it gives the Windows picker — what every existing caller gets,
+//     and what non-WSL users see. WSL targets route to the wsl helpers.
+//   - Web settings UX: a plain toggle for "WSL backend" plus a distro
+//     picker that shows up when the toggle is on. Default-off, so
+//     users who never opted in see the same surface as before.
 //
-// What's left (steps 6+):
-//   - `getLocalEnvironmentBootstrap()` widens to `*Bootstraps()` so the
-//     frontend env runtime can register one local environment per pool
-//     instance.
-//   - pickFolder IPC takes a `targetEnvironmentId` so opening a folder
-//     routes to the right backend's filesystem (primary vs. WSL).
-//   - Settings UX in the web app: the WSL "swap dialog" gets replaced
-//     by a plain enable toggle + distro picker pair.
+// What's left (out-of-band work the desktop side is ready for but the
+// renderer hasn't wired up):
+//   - The web env runtime still treats the primary as the only local
+//     environment. Registering the WSL bootstrap as a sibling local
+//     environment (sidebar/env switcher, project routing keyed by
+//     env id) needs per-environment auth bootstrap (each backend
+//     signs its own session cookies), which is a meaningful auth-layer
+//     refactor. The desktop side exposes everything needed
+//     (getLocalEnvironmentBootstraps, targetEnvironmentId on pickFolder);
+//     the renderer can take this up when the per-env auth design is
+//     settled.
 //
 // Migration history (commits):
 //   1. Reshape `DesktopBackendManager` into an instance factory and route
@@ -44,6 +55,9 @@
 //   5. Wire WSL through the pool: settings rename, BackendConfiguration
 //      split, DesktopWslBackend orchestrator, new IPC, web compat.
 //      (b1622191 + 31ce3add + 627c80cb)
+//   6. Widen getLocalEnvironmentBootstrap to *Bootstraps (plural). (bad66041)
+//   7. pickFolder takes optional targetEnvironmentId. (5d80468d)
+//   8. Settings UX: toggle + distro picker, no swap dialog. (eb5a03ea)
 
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
