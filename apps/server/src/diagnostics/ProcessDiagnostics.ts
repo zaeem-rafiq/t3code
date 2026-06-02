@@ -41,7 +41,7 @@ const WindowsProcessRecord = Schema.Struct({
 });
 type WindowsProcessRecord = Schema.Schema.Type<typeof WindowsProcessRecord>;
 const WindowsProcessRecordsJson = Schema.fromJsonString(
-  Schema.Union(Schema.Array(WindowsProcessRecord), WindowsProcessRecord),
+  Schema.Union([Schema.Array(WindowsProcessRecord), WindowsProcessRecord]),
 );
 const decodeWindowsProcessRecordsJson = Schema.decodeUnknownEffect(WindowsProcessRecordsJson);
 
