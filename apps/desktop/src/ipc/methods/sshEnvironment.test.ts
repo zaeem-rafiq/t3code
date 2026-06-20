@@ -10,7 +10,9 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import {
   DesktopSshEnvironmentRequestError,
@@ -23,6 +25,8 @@ import * as DesktopSshPasswordPrompts from "../../ssh/DesktopSshPasswordPrompts.
 const decodeDesktopSshEnvironmentEnsureResult = Schema.decodeUnknownEffect(
   DesktopSshEnvironmentEnsureResultSchema,
 );
+
+const isSshHttpBridgeError = Schema.is(SshHttpBridgeError);
 
 function jsonResponse(request: HttpClientRequest.HttpClientRequest, body: unknown, status = 200) {
   return HttpClientResponse.fromWeb(
@@ -133,7 +137,7 @@ describe("SSH environment IPC", () => {
 
       assert.instanceOf(error, DesktopSshEnvironmentRequestError);
       assert.equal(error.operation, "fetch-environment-descriptor");
-      assert.equal(error.cause instanceof SshHttpBridgeError, false);
+      assert.equal(isSshHttpBridgeError(error.cause), false);
     }).pipe(Effect.provide(layer));
   });
 
@@ -158,7 +162,7 @@ describe("SSH environment IPC", () => {
       const error = failure.value;
 
       assert.instanceOf(error, DesktopSshEnvironmentRequestError);
-      assert.instanceOf(error.cause, SshHttpBridgeError);
+      assert.equal(isSshHttpBridgeError(error.cause), true);
       assert.equal(requestCount, 0);
     }).pipe(Effect.provide(layer));
   });

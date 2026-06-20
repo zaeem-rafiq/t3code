@@ -42,6 +42,7 @@ import {
   ProjectSearchEntriesError,
   ProjectWriteFileError,
   RelayClientInstallFailedError,
+  type RelayClientInstallFailureReason,
   type RelayClientInstallProgressEvent,
   OrchestrationReplayEventsError,
   type FilesystemBrowseFailure,
@@ -113,6 +114,36 @@ import * as SessionStore from "./auth/SessionStore.ts";
 import { catchEnvironmentAuthenticationErrors } from "./auth/http.ts";
 import * as RelayClient from "@t3tools/shared/relayClient";
 const isOrchestrationDispatchCommandError = Schema.is(OrchestrationDispatchCommandError);
+
+function relayClientInstallFailureReason(
+  error: RelayClient.RelayClientInstallError,
+): RelayClientInstallFailureReason {
+  switch (error._tag) {
+    case "RelayClientDownloadError":
+    case "RelayClientDownloadReadError":
+      return "download_failed";
+    case "RelayClientChecksumMismatchError":
+      return "invalid_checksum";
+    case "RelayClientInstallLockedError":
+      return "install_locked";
+    case "RelayClientOverrideMissingError":
+      return "override_missing";
+    case "RelayClientUnsupportedPlatformError":
+      return "unsupported_platform";
+    case "RelayClientChecksumVerificationError":
+    case "RelayClientExecutableValidationError":
+      return "validation_failed";
+    case "RelayClientDirectoryCreateError":
+    case "RelayClientInstallLockAcquireError":
+    case "RelayClientDownloadWriteError":
+    case "RelayClientArchiveExtractError":
+    case "RelayClientExecutablePermissionError":
+    case "RelayClientStageError":
+    case "RelayClientActivationError":
+    case "RelayClientInstallWriteError":
+      return "write_failed";
+  }
+}
 
 const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
 
@@ -1289,16 +1320,15 @@ const makeWsRpcLayer = (currentSession: EnvironmentAuth.AuthenticatedSession) =>
                         status,
                       }),
                     ),
-                    Effect.catchTags({
-                      RelayClientInstallError: (error) =>
-                        Queue.fail(
-                          queue,
-                          new RelayClientInstallFailedError({
-                            reason: error.reason,
-                            message: error.message,
-                          }),
-                        ),
-                    }),
+                    Effect.catchIf(RelayClient.isRelayClientInstallError, (error) =>
+                      Queue.fail(
+                        queue,
+                        new RelayClientInstallFailedError({
+                          reason: relayClientInstallFailureReason(error),
+                          message: error.message,
+                        }),
+                      ),
+                    ),
                     Effect.andThen(Queue.end(queue)),
                     Effect.forkScoped,
                   ),
