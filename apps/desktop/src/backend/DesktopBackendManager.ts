@@ -47,6 +47,7 @@ import {
   type DesktopBackendBootstrap as DesktopBackendBootstrapValue,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
 } from "@t3tools/contracts";
+import { waitForHttpReady as waitForHttpReadyShared } from "@t3tools/shared/httpReadiness";
 
 import * as DesktopObservability from "../app/DesktopObservability.ts";
 
@@ -274,23 +275,20 @@ const closeRun = (
   ).pipe(Effect.ignore);
 };
 
-const waitForHttpReady = Effect.fn("desktop.backendManager.waitForHttpReady")(function* (
+const waitForHttpReady = (
   baseUrl: URL,
   timeout: Duration.Duration,
-): Effect.fn.Return<void, BackendTimeoutError, HttpClient.HttpClient> {
+): Effect.Effect<void, BackendTimeoutError, HttpClient.HttpClient> => {
   const readinessUrl = new URL(BACKEND_READINESS_PATH, baseUrl);
-  const client = (yield* HttpClient.HttpClient).pipe(
-    HttpClient.filterStatusOk,
-    HttpClient.transformResponse(Effect.timeout(DEFAULT_BACKEND_READINESS_REQUEST_TIMEOUT)),
-    HttpClient.retry(Schedule.spaced(DEFAULT_BACKEND_READINESS_INTERVAL)),
-  );
-
-  yield* client.get(readinessUrl).pipe(
-    Effect.asVoid,
-    Effect.timeout(timeout),
-    Effect.mapError(() => new BackendTimeoutError({ url: readinessUrl })),
-  );
-});
+  return waitForHttpReadyShared({
+    baseUrl: baseUrl.href,
+    path: BACKEND_READINESS_PATH,
+    timeoutMs: Duration.toMillis(timeout),
+    intervalMs: Duration.toMillis(DEFAULT_BACKEND_READINESS_INTERVAL),
+    probeTimeoutMs: Duration.toMillis(DEFAULT_BACKEND_READINESS_REQUEST_TIMEOUT),
+    makeError: () => new BackendTimeoutError({ url: readinessUrl }),
+  });
+};
 
 function describeProcessExit(
   result: Result.Result<ChildProcessSpawner.ExitCode, PlatformError.PlatformError>,
