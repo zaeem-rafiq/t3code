@@ -1128,6 +1128,8 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const foldSettleSecondFrameRef = useRef<number | null>(null);
   const disclosureAnchorKeyRef = useRef<string | null>(null);
   const headerMaterialVisibleRef = useRef(false);
+  const listContentHeightRef = useRef(0);
+  const listViewportHeightRef = useRef(0);
   const previousLatestTurnRef = useRef(props.latestTurn);
   const { width: windowWidth } = useWindowDimensions();
   const [viewportWidth, setViewportWidth] = useState(() =>
@@ -1162,10 +1164,6 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const insets = useSafeAreaInsets();
   const topContentInset = props.contentTopInset ?? insets.top + 44;
   const bottomContentInset = props.contentBottomInset ?? 18;
-  const handleViewportLayout = useCallback((event: LayoutChangeEvent) => {
-    const nextWidth = Math.round(event.nativeEvent.layout.width);
-    setViewportWidth((current) => (Math.abs(current - nextWidth) > 1 ? nextWidth : current));
-  }, []);
 
   const iconSubtleColor = useThemeColor("--color-icon-subtle");
   const userBubbleColor = useThemeColor("--color-user-bubble");
@@ -1236,11 +1234,39 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     },
     [reportHeaderMaterialVisibility, topContentInset],
   );
+  const reportInitialHeaderMaterialVisibility = useCallback(() => {
+    const topInsetContribution = props.usesAutomaticContentInsets ? topContentInset : 0;
+    reportHeaderMaterialVisibility(
+      listContentHeightRef.current - listViewportHeightRef.current + topInsetContribution > 6,
+    );
+  }, [props.usesAutomaticContentInsets, reportHeaderMaterialVisibility, topContentInset]);
+  const handleViewportLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const nextWidth = Math.round(event.nativeEvent.layout.width);
+      const nextHeight = Math.round(event.nativeEvent.layout.height);
+      setViewportWidth((current) => (Math.abs(current - nextWidth) > 1 ? nextWidth : current));
+      if (Math.abs(listViewportHeightRef.current - nextHeight) > 1) {
+        listViewportHeightRef.current = nextHeight;
+        reportInitialHeaderMaterialVisibility();
+      }
+    },
+    [reportInitialHeaderMaterialVisibility],
+  );
+  const handleContentSizeChange = useCallback(
+    (_contentWidth: number, contentHeight: number) => {
+      const nextHeight = Math.round(contentHeight);
+      if (Math.abs(listContentHeightRef.current - nextHeight) > 1) {
+        listContentHeightRef.current = nextHeight;
+        reportInitialHeaderMaterialVisibility();
+      }
+    },
+    [reportInitialHeaderMaterialVisibility],
+  );
 
   useEffect(() => {
-    headerMaterialVisibleRef.current = false;
-    props.onHeaderMaterialVisibilityChange?.(false);
-  }, [props.onHeaderMaterialVisibilityChange, props.threadId]);
+    listContentHeightRef.current = 0;
+    reportHeaderMaterialVisibility(false);
+  }, [props.threadId, reportHeaderMaterialVisibility]);
 
   const expandedWorkGroupIds = useMemo(() => {
     const ids = new Set<string>();
@@ -1546,6 +1572,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             keyboardLiftBehavior="whenAtEnd"
             estimatedItemSize={180}
             initialScrollAtEnd
+            onContentSizeChange={handleContentSizeChange}
             onScroll={handleScroll}
             scrollEventThrottle={16}
             ListHeaderComponent={

@@ -195,9 +195,12 @@ export const TerminalSurface = memo(function TerminalSurface(props: TerminalSurf
   }, [hasNativeSurface, props.buffer.length, props.isRunning, props.terminalKey]);
   const handleNativeInput = useCallback(
     (event: NativeSyntheticEvent<TerminalInputEvent>) => {
+      if (!props.isRunning) {
+        return;
+      }
       onInput(event.nativeEvent.data);
     },
-    [onInput],
+    [onInput, props.isRunning],
   );
   const handleNativeResize = useCallback(
     (event: NativeSyntheticEvent<TerminalResizeEvent>) => {
@@ -215,7 +218,7 @@ export const TerminalSurface = memo(function TerminalSurface(props: TerminalSurf
         <NativeTerminalSurfaceView
           appearanceScheme={appearanceScheme}
           backgroundColor={theme.background}
-          focusRequest={props.keyboardFocusRequest ?? 0}
+          focusRequest={props.isRunning ? (props.keyboardFocusRequest ?? 0) : 0}
           foregroundColor={theme.foreground}
           mutedForegroundColor={theme.mutedForeground}
           terminalKey={props.terminalKey}
