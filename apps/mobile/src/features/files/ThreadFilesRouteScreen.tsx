@@ -727,10 +727,6 @@ export function ThreadFileScreen() {
               accessibilityLabel="Return to chat"
               icon="chevron.left"
               onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                  return;
-                }
                 router.replace(buildThreadRoutePath({ environmentId, threadId }));
               }}
             />

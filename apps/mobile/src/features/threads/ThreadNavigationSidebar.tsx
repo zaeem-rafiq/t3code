@@ -399,6 +399,7 @@ export function ThreadNavigationSidebar(props: {
   const selectedMutedColor = IOS_SELECTED_MUTED_FOREGROUND;
   const pressedBackgroundColor = useThemeColor("--color-subtle");
   const listThemeKey = `${colorScheme}:${String(backgroundColor)}:${String(selectedBackgroundColor)}`;
+  const listExtraData = `${listThemeKey}:${props.selectedThreadKey ?? ""}`;
   const headerFadeColor = String(backgroundColor);
   const topListInset = insets.top + SIDEBAR_STICKY_HEADER_HEIGHT - 6;
   const handleSwipeableWillOpen = useCallback((methods: SwipeableMethods) => {
@@ -517,7 +518,7 @@ export function ThreadNavigationSidebar(props: {
           <LegendList
             data={listItems}
             estimatedItemSize={58}
-            extraData={listThemeKey}
+            extraData={listExtraData}
             getItemType={(item) => item.kind}
             keyExtractor={(item) => item.key}
             renderItem={renderListItem}
