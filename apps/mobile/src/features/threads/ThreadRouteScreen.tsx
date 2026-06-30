@@ -623,7 +623,6 @@ function ThreadRouteContent(
     projectScripts: selectedThreadProject?.scripts ?? [],
     terminalSessions: terminalMenuSessions,
     showDirectFileControl: layout.usesSplitView,
-    showSearchSlot: false,
     onOpenTerminal: handleOpenTerminal,
     onOpenNewTerminal: handleOpenNewTerminal,
     onRunProjectScript: handleRunProjectScript,

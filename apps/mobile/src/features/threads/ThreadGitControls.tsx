@@ -95,7 +95,6 @@ type ThreadGitControlsProps = {
   readonly terminalSessions: ReadonlyArray<TerminalMenuSession>;
   readonly showActionControls?: boolean;
   readonly showDirectFileControl?: boolean;
-  readonly showSearchSlot?: boolean;
   readonly onOpenFilesInspector?: () => void;
   readonly onOpenGitInspector?: () => void;
   readonly onOpenTerminal: (terminalId?: string | null) => void;
@@ -419,7 +418,7 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
   const model = useThreadGitControlModel(props);
   const showActionControls = props.showActionControls ?? true;
 
-  if (!showActionControls && !props.showSearchSlot) {
+  if (!showActionControls) {
     return null;
   }
 
@@ -537,8 +536,6 @@ export function ThreadGitControls(props: ThreadGitControlsProps) {
           </Stack.Toolbar.MenuAction>
         </Stack.Toolbar.Menu>
       ) : null}
-      {props.showSearchSlot ? <Stack.Toolbar.Spacer width={10} sharesBackground={false} /> : null}
-      {props.showSearchSlot ? <Stack.Toolbar.SearchBarSlot /> : null}
     </Stack.Toolbar>
   );
 }
