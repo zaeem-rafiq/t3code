@@ -19,7 +19,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] 1. Honor `is_error` on Claude SDK results (runs marked completed on 401/529)
 - [x] 2. Preserve real failure causes in projected errors (Claude adapter + ProviderFailure)
 - [x] 3. Preserve cursor failure detail (requestId, durationMs; SDK exposes no error text yet)
-- [ ] 4. Log failure/lifecycle frames in native provider logs
+- [x] 4. Log failure/lifecycle frames in native provider logs (claude + cursor runners)
 - [x] 5. Surface provider-process crashes / reconcile cancellations to the user
 - [ ] 6. Ingest codex-native collab subagents
 - [ ] 7. Fix grok/ACP background subagent lifecycle + transcript projection
@@ -187,7 +187,15 @@ Process exit is not logged to the per-thread native log either.
    and turn-abort paths — across all adapters (cursor, claude, codex, ACP, opencode).
 2. Keep payloads small (message + code + native run/turn id), no secrets.
 
-- [ ] Status: not started
+- [x] Status: FIXED for the two adapters with observed gaps — Claude and Cursor runners tap
+      every fallible SDK boundary (query open, messages stream, prompt offer, set_model /
+      agent open, run.start, run.wait) and write a `runner.error` frame with the redacted
+      cause chain (reuses makeProviderFailure redaction). App-verified: broken Claude binary
+      now leaves `runner.error messages.stream | ... native binary not found ...` in the
+      native log. Codex already logs upstream errors as protocol messages; ACP/opencode
+      logging remains payload-redacted (low backlog). Process spawn/exit lifecycle frames
+      deferred — the cursor SDK is in-process and claude CLI exits already surface as stream
+      errors.
 
 ## 5. Provider crashes / reconcile cancellations are silent to the user
 
