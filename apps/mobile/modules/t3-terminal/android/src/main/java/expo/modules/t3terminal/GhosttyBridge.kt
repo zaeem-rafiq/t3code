@@ -15,10 +15,11 @@ internal object GhosttyBridge {
     foreground: Int,
     background: Int,
     cursor: Int,
-    palette: IntArray,
+    palette: IntArray
   ): Long
 
   @JvmStatic external fun nativeDestroy(handle: Long)
+
   @JvmStatic external fun nativeFeed(handle: Long, data: ByteArray): ByteArray
 
   @JvmStatic
@@ -27,7 +28,7 @@ internal object GhosttyBridge {
     cols: Int,
     rows: Int,
     cellWidth: Int,
-    cellHeight: Int,
+    cellHeight: Int
   ): ByteArray
 
   @JvmStatic external fun nativeScroll(handle: Long, rows: Int)
@@ -38,7 +39,7 @@ internal object GhosttyBridge {
     foreground: Int,
     background: Int,
     cursor: Int,
-    palette: IntArray,
+    palette: IntArray
   )
 
   @JvmStatic external fun nativeSnapshot(handle: Long): ByteArray

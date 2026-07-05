@@ -3,14 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "main": "index.ts",
-  "expo": {
-    "autolinking": {
-      "buildFromSource": [
-        "react-native-screens",
-        "@react-native-menu/menu"
-      ]
-    }
-  },
   "scripts": {
     "dev": "expo start --clear",
     "dev:client": "APP_VARIANT=development expo start --dev-client --scheme t3code-dev --clear",
@@ -131,5 +123,13 @@
   },
   "overrides": {
     "react-native-nitro-markdown": "file:deps/react-native-nitro-markdown-0.5.0.tgz"
+  },
+  "expo": {
+    "autolinking": {
+      "buildFromSource": [
+        "react-native-screens",
+        "@react-native-menu/menu"
+      ]
+    }
   }
 }

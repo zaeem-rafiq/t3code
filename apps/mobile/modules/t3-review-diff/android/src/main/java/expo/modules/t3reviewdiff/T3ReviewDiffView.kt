@@ -229,7 +229,10 @@ class T3ReviewDiffView(context: Context, appContext: AppContext) : ExpoView(cont
     velocityTracker?.addMovement(event)
     val handled = super.dispatchTouchEvent(event)
     if (
-      (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) &&
+      (
+        event.actionMasked == MotionEvent.ACTION_UP ||
+          event.actionMasked == MotionEvent.ACTION_CANCEL
+        ) &&
       dragAxis == null
     ) {
       velocityTracker?.recycle()
@@ -398,7 +401,7 @@ class T3ReviewDiffView(context: Context, appContext: AppContext) : ExpoView(cont
 
   private enum class DragAxis {
     VERTICAL,
-    HORIZONTAL,
+    HORIZONTAL
   }
 }
 
@@ -418,7 +421,7 @@ private data class DiffRow(
   val newLineNumber: Int?,
   val commentText: String,
   val commentRangeLabel: String,
-  val commentSectionTitle: String,
+  val commentSectionTitle: String
 ) {
   val resolvedFileId: String get() = fileId.ifEmpty { id }
 }
@@ -426,7 +429,7 @@ private data class DiffRow(
 private data class DiffToken(
   val content: String,
   val color: Int?,
-  val fontStyle: Int,
+  val fontStyle: Int
 )
 
 private data class DiffTheme(
@@ -442,7 +445,7 @@ private data class DiffTheme(
   val addBar: Int,
   val deleteBar: Int,
   val addText: Int,
-  val deleteText: Int,
+  val deleteText: Int
 ) {
   companion object {
     fun fallback(scheme: String): DiffTheme = if (scheme == "dark") {
@@ -512,7 +515,7 @@ private data class DiffStyle(
   val changeBarWidthPx: Float,
   val fileHeaderHeightPx: Float,
   val codeFontSizePx: Float,
-  val lineNumberFontSizePx: Float,
+  val lineNumberFontSizePx: Float
 ) {
   companion object {
     fun defaults(density: Float): DiffStyle = DiffStyle(
@@ -534,7 +537,11 @@ private data class DiffStyle(
         changeBarWidthPx = json.floatDp("changeBarWidth", fallback.changeBarWidthPx, density),
         fileHeaderHeightPx = json.floatDp("fileHeaderHeight", fallback.fileHeaderHeightPx, density),
         codeFontSizePx = json.floatSp("codeFontSize", fallback.codeFontSizePx, density),
-        lineNumberFontSizePx = json.floatSp("lineNumberFontSize", fallback.lineNumberFontSizePx, density),
+        lineNumberFontSizePx = json.floatSp(
+          "lineNumberFontSize",
+          fallback.lineNumberFontSizePx,
+          density
+        ),
       )
     } catch (_: Exception) {
       fallback
@@ -779,7 +786,14 @@ private class DiffCanvasView(context: Context) : View(context) {
   }
 
   private fun drawCommentRow(canvas: Canvas, row: DiffRow, top: Int, bottom: Int) {
-    fill(canvas, theme.headerBackground, style.gutterWidthPx, top.toFloat(), width.toFloat(), bottom.toFloat())
+    fill(
+      canvas,
+      theme.headerBackground,
+      style.gutterWidthPx,
+      top.toFloat(),
+      width.toFloat(),
+      bottom.toFloat()
+    )
     boldTextPaint.color = theme.text
     boldTextPaint.textSize = 12f * density
     drawScrollableCode(canvas, top, bottom) { codeX ->
@@ -856,14 +870,19 @@ private class DiffCanvasView(context: Context) : View(context) {
     val newNumber = row.newLineNumber?.toString().orEmpty()
     val baseline = centeredBaseline(top, bottom, textPaint)
     canvas.drawText(oldNumber, style.changeBarWidthPx + 6f * density, baseline, textPaint)
-    canvas.drawText(newNumber, style.changeBarWidthPx + style.gutterWidthPx / 2f, baseline, textPaint)
+    canvas.drawText(
+      newNumber,
+      style.changeBarWidthPx + style.gutterWidthPx / 2f,
+      baseline,
+      textPaint
+    )
   }
 
   private fun drawScrollableCode(
     canvas: Canvas,
     top: Int,
     bottom: Int,
-    draw: (Float) -> Unit,
+    draw: (Float) -> Unit
   ) {
     val gutterEnd = style.changeBarWidthPx + style.gutterWidthPx
     canvas.save()
@@ -909,7 +928,14 @@ private class DiffCanvasView(context: Context) : View(context) {
     )
   }
 
-  private fun fill(canvas: Canvas, color: Int, left: Float, top: Float, right: Float, bottom: Float) {
+  private fun fill(
+    canvas: Canvas,
+    color: Int,
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float
+  ) {
     backgroundPaint.color = color
     canvas.drawRect(left, top, right, bottom, backgroundPaint)
   }
@@ -937,7 +963,7 @@ private class DiffCanvasView(context: Context) : View(context) {
   private data class StickyFileHeader(
     val index: Int,
     val top: Int,
-    val bottom: Int,
+    val bottom: Int
   )
 }
 

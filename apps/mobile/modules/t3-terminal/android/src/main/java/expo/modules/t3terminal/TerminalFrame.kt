@@ -17,7 +17,7 @@ internal data class TerminalFrame(
   val cellForegrounds: IntArray,
   val cellBackgrounds: IntArray,
   val cellFlags: IntArray,
-  val cellText: Array<String>,
+  val cellText: Array<String>
 ) {
   companion object {
     private const val MAGIC = 0x54563354

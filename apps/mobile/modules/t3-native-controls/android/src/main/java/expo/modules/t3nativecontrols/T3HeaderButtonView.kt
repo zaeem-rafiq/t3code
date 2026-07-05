@@ -79,7 +79,19 @@ private class HeaderIconView(context: Context) : View(context) {
     val right = cx + size * 0.14f
     val bottom = cy + size * 0.2f
     canvas.drawRoundRect(left, top, right, bottom, size * 0.04f, size * 0.04f, paint)
-    canvas.drawLine(cx - size * 0.02f, cy + size * 0.13f, cx + size * 0.24f, cy - size * 0.13f, paint)
-    canvas.drawLine(cx + size * 0.17f, cy - size * 0.2f, cx + size * 0.24f, cy - size * 0.13f, paint)
+    canvas.drawLine(
+      cx - size * 0.02f,
+      cy + size * 0.13f,
+      cx + size * 0.24f,
+      cy - size * 0.13f,
+      paint
+    )
+    canvas.drawLine(
+      cx + size * 0.17f,
+      cy - size * 0.2f,
+      cx + size * 0.24f,
+      cy - size * 0.13f,
+      paint
+    )
   }
 }

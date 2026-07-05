@@ -20,7 +20,10 @@ export function AndroidHomeFabLayout(props: {
   return <AndroidHomeFab {...props} />;
 }
 
-function AndroidHomeFab(props: { readonly onStartNewTask: () => void; readonly children: ReactNode }) {
+function AndroidHomeFab(props: {
+  readonly onStartNewTask: () => void;
+  readonly children: ReactNode;
+}) {
   const insets = useSafeAreaInsets();
   const primaryColor = useThemeColor("--color-primary");
   const primaryForegroundColor = useThemeColor("--color-primary-foreground");

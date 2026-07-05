@@ -22,7 +22,10 @@ import expo.modules.kotlin.views.ExpoView
 import org.json.JSONObject
 import kotlin.math.max
 
-class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
+class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
+  context,
+  appContext
+) {
   private val editor = SelectionAwareEditText(context)
   private val onComposerChange by EventDispatcher()
   private val onComposerSelectionChange by EventDispatcher()
@@ -49,8 +52,8 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
     editor.minLines = 1
     editor.inputType =
       InputType.TYPE_CLASS_TEXT or
-        InputType.TYPE_TEXT_FLAG_MULTI_LINE or
-        InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+      InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+      InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
     editor.setTextColor(Color.BLACK)
     editor.setHintTextColor(Color.GRAY)
     editor.setPadding(0, 0, 0, 0)
@@ -71,7 +74,12 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
     }
     editor.addTextChangedListener(
       object : TextWatcher {
-        override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) = Unit
+        override fun beforeTextChanged(
+          text: CharSequence?,
+          start: Int,
+          count: Int,
+          after: Int
+        ) = Unit
         override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) = Unit
 
         override fun afterTextChanged(editable: Editable?) {
@@ -285,13 +293,22 @@ class T3ComposerEditorView(context: Context, appContext: AppContext) : ExpoView(
 
   private fun applyTokenSpans() {
     val editable = editor.text ?: return
-    editable.getSpans(0, editable.length, ComposerChipSpan::class.java).forEach(editable::removeSpan)
+    editable.getSpans(
+      0,
+      editable.length,
+      ComposerChipSpan::class.java
+    ).forEach(editable::removeSpan)
     tokens.forEach { token ->
       if (token.start < 0 || token.end <= token.start || token.end > editable.length) return@forEach
       val expectedSource = editable.substring(token.start, token.end)
       if (expectedSource != token.source) return@forEach
       editable.setSpan(
-        ComposerChipSpan(token.label, token.type == "skill", chipTheme, resources.displayMetrics.density),
+        ComposerChipSpan(
+          token.label,
+          token.type == "skill",
+          chipTheme,
+          resources.displayMetrics.density
+        ),
         token.start,
         token.end,
         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
@@ -313,7 +330,7 @@ private data class ComposerToken(
   val source: String,
   val label: String,
   val start: Int,
-  val end: Int,
+  val end: Int
 )
 
 private data class ComposerChipTheme(
@@ -322,7 +339,7 @@ private data class ComposerChipTheme(
   val chipText: Int,
   val skillBackground: Int,
   val skillBorder: Int,
-  val skillText: Int,
+  val skillText: Int
 ) {
   companion object {
     fun default() = ComposerChipTheme(
@@ -340,7 +357,7 @@ private class ComposerChipSpan(
   private val label: String,
   private val skill: Boolean,
   private val theme: ComposerChipTheme,
-  density: Float,
+  density: Float
 ) : ReplacementSpan() {
   private val horizontalPadding = 7f * density
   private val verticalPadding = 2f * density
@@ -352,7 +369,7 @@ private class ComposerChipSpan(
     text: CharSequence,
     start: Int,
     end: Int,
-    fontMetrics: Paint.FontMetricsInt?,
+    fontMetrics: Paint.FontMetricsInt?
   ): Int {
     fontMetrics?.let {
       val extra = verticalPadding.toInt()
@@ -374,7 +391,7 @@ private class ComposerChipSpan(
     top: Int,
     y: Int,
     bottom: Int,
-    paint: Paint,
+    paint: Paint
   ) {
     val width = paint.measureText(label) + horizontalPadding * 2
     val metrics = paint.fontMetrics

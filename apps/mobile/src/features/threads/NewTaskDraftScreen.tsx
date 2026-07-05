@@ -448,9 +448,7 @@ export function NewTaskDraftScreen(props: {
     return (
       <View className="flex-1 bg-sheet">
         <NativeStackScreenOptions
-          options={
-            Platform.OS === "android" ? { headerShown: false } : { title: "Loading task" }
-          }
+          options={Platform.OS === "android" ? { headerShown: false } : { title: "Loading task" }}
         />
       </View>
     );
@@ -510,9 +508,7 @@ export function NewTaskDraftScreen(props: {
       >
         <ComposerToolbarTrigger
           accessibilityLabel="Model"
-          iconNode={
-            <ProviderIcon provider={flow.selectedModelOption?.providerDriver} size={16} />
-          }
+          iconNode={<ProviderIcon provider={flow.selectedModelOption?.providerDriver} size={16} />}
           label={flow.selectedModelOption?.label ?? "Model"}
         />
       </ControlPillMenu>

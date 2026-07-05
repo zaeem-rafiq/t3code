@@ -88,8 +88,16 @@ function withPopupMenuStyles(config) {
     if (appTheme) {
       assignStyleItem(appTheme, "popupMenuStyle", "@style/AppPopupMenu");
       assignStyleItem(appTheme, "android:popupMenuStyle", "@style/AppPopupMenu");
-      assignStyleItem(appTheme, "textAppearanceLargePopupMenu", "@style/AppPopupMenu.TextAppearance");
-      assignStyleItem(appTheme, "textAppearanceSmallPopupMenu", "@style/AppPopupMenu.TextAppearance");
+      assignStyleItem(
+        appTheme,
+        "textAppearanceLargePopupMenu",
+        "@style/AppPopupMenu.TextAppearance",
+      );
+      assignStyleItem(
+        appTheme,
+        "textAppearanceSmallPopupMenu",
+        "@style/AppPopupMenu.TextAppearance",
+      );
       // Submenu popups show their parent item as a header row that reads a
       // separate theme attribute, so it needs the same themed text color.
       assignStyleItem(
@@ -215,10 +223,19 @@ function withPopupMenuBackgroundDrawable(config) {
         "drawable",
       );
       fs.mkdirSync(drawableDir, { recursive: true });
-      fs.writeFileSync(path.join(drawableDir, "popup_menu_background.xml"), POPUP_BACKGROUND_DRAWABLE);
+      fs.writeFileSync(
+        path.join(drawableDir, "popup_menu_background.xml"),
+        POPUP_BACKGROUND_DRAWABLE,
+      );
       fs.writeFileSync(path.join(drawableDir, "ic_menu_check.xml"), CHECK_DRAWABLE);
-      fs.writeFileSync(path.join(drawableDir, "popup_menu_check_button.xml"), CHECKBOX_BUTTON_SELECTOR);
-      fs.writeFileSync(path.join(drawableDir, "popup_menu_submenu_arrow.xml"), SUBMENU_ARROW_DRAWABLE);
+      fs.writeFileSync(
+        path.join(drawableDir, "popup_menu_check_button.xml"),
+        CHECKBOX_BUTTON_SELECTOR,
+      );
+      fs.writeFileSync(
+        path.join(drawableDir, "popup_menu_submenu_arrow.xml"),
+        SUBMENU_ARROW_DRAWABLE,
+      );
       return config;
     },
   ]);

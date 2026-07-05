@@ -224,11 +224,13 @@ class T3TerminalView(context: Context, appContext: AppContext) : ExpoView(contex
   private fun emitResize() {
     if (
       width <= 0 ||
-        height <= 0 ||
-        terminalCanvas.width <= 0 ||
-        terminalCanvas.height <= 0 ||
-        isCleanedUp
-    ) return
+      height <= 0 ||
+      terminalCanvas.width <= 0 ||
+      terminalCanvas.height <= 0 ||
+      isCleanedUp
+    ) {
+      return
+    }
     val nextCols = (terminalCanvas.usableWidth() / terminalCanvas.cellWidthPx)
       .toInt()
       .coerceIn(2, 400)
@@ -302,7 +304,9 @@ class T3TerminalView(context: Context, appContext: AppContext) : ExpoView(contex
 
   private fun renderSnapshot() {
     if (terminalHandle == 0L) return
-    TerminalFrame.decode(GhosttyBridge.nativeSnapshot(terminalHandle))?.let(terminalCanvas::setFrame)
+    TerminalFrame.decode(
+      GhosttyBridge.nativeSnapshot(terminalHandle)
+    )?.let(terminalCanvas::setFrame)
   }
 
   private fun emitResponse(response: ByteArray) {
@@ -313,7 +317,9 @@ class T3TerminalView(context: Context, appContext: AppContext) : ExpoView(contex
 
   private fun requestKeyboardFocus() {
     inputView.requestFocus()
-    val inputMethodManager = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+    val inputMethodManager = context.getSystemService(
+      Context.INPUT_METHOD_SERVICE
+    ) as? InputMethodManager
     inputMethodManager?.showSoftInput(inputView, InputMethodManager.SHOW_IMPLICIT)
   }
 

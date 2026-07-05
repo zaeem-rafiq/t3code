@@ -232,7 +232,7 @@ internal class TerminalCanvasView(context: Context) : View(context) {
       first: MotionEvent?,
       current: MotionEvent,
       distanceX: Float,
-      distanceY: Float,
+      distanceY: Float
     ): Boolean {
       scrollRemainder += distanceY / cellHeightPx
       val rows = scrollRemainder.toInt()
