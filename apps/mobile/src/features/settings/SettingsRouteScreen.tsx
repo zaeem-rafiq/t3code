@@ -17,6 +17,7 @@ import {
   settlePromise,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
+import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { AppText as Text } from "../../components/AppText";
 import { setLiveActivityUpdatesEnabled } from "../agent-awareness/liveActivityPreferences";
 import { requestAgentNotificationPermission } from "../agent-awareness/notificationPermissions";
@@ -60,23 +61,31 @@ export function SettingsRouteScreen() {
   return (
     <>
       <WorkspaceSidebarToolbar />
-      <NativeStackScreenOptions
-        options={{
-          unstable_headerRightItems:
-            Platform.OS === "ios"
-              ? () => [
-                  withNativeGlassHeaderItem({
-                    accessibilityLabel: "Close settings",
-                    icon: { name: "xmark", type: "sfSymbol" } as const,
-                    identifier: "settings-close",
-                    label: "",
-                    onPress: () => navigation.goBack(),
-                    type: "button",
-                  }),
-                ]
-              : undefined,
-        }}
-      />
+      {Platform.OS === "android" ? (
+        <>
+          {/* Android renders its own in-screen header instead of the native bar. */}
+          <NativeStackScreenOptions options={{ headerShown: false }} />
+          <AndroidScreenHeader title="Settings" onBack={() => navigation.goBack()} />
+        </>
+      ) : (
+        <NativeStackScreenOptions
+          options={{
+            unstable_headerRightItems:
+              Platform.OS === "ios"
+                ? () => [
+                    withNativeGlassHeaderItem({
+                      accessibilityLabel: "Close settings",
+                      icon: { name: "xmark", type: "sfSymbol" } as const,
+                      identifier: "settings-close",
+                      label: "",
+                      onPress: () => navigation.goBack(),
+                      type: "button",
+                    }),
+                  ]
+                : undefined,
+          }}
+        />
+      )}
       {hasCloudPublicConfig() ? <ConfiguredSettingsRouteScreen /> : <LocalSettingsRouteScreen />}
     </>
   );
