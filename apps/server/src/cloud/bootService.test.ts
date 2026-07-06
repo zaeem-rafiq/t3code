@@ -109,11 +109,15 @@ it("quotes systemd values containing spaces and escapes percent specifiers", () 
     nodePath: "/home/me/my tools/node",
     t3EntryPath: "/home/me/T3 Data/bin.mjs",
     baseDir: "/home/me/T3 Data",
-    logPath: "/home/me/logs/boot.log",
+    logPath: "/home/me/100%logs/boot.log",
     unitPath: "/home/me/.config/systemd/user/t3code.service",
   });
   assert.include(unit, 'ExecStart="/home/me/my tools/node" "/home/me/T3 Data/bin.mjs" serve');
   assert.include(unit, 'Environment=T3CODE_HOME="/home/me/T3 Data"');
+  // append: paths take the rest of the line literally (spaces are fine,
+  // quoting is not), but % still goes through specifier expansion.
+  assert.include(unit, "StandardOutput=append:/home/me/100%%logs/boot.log");
+  assert.include(unit, "StandardError=append:/home/me/100%%logs/boot.log");
 });
 
 it("flags package-manager cache entry points as ephemeral", () => {
@@ -159,7 +163,10 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         commands.map((entry) => [entry.command, ...entry.args].join(" ")),
         [
           "systemctl --user daemon-reload",
-          "systemctl --user enable --now t3code.service",
+          "systemctl --user enable t3code.service",
+          // restart (not enable --now) so repairing a stale unit replaces a
+          // running process instead of leaving the old one until reboot.
+          "systemctl --user restart t3code.service",
           "loginctl enable-linger",
         ],
       );
@@ -285,6 +292,32 @@ it.layer(NodeServices.layer)("BootService", (it) => {
 
       const status = yield* service.status;
       assert.isFalse(status.supported);
+      assert.isFalse(status.installed);
+    }),
+  );
+
+  it.effect("removes the unit file when an activation step fails", () =>
+    Effect.gen(function* () {
+      const dirs = makeTestDirs();
+      const commands: Array<RecordedCommand> = [];
+      const service = yield* BootService.make({
+        baseDir: dirs.baseDir,
+        logsDir: dirs.logsDir,
+        cliVersion: "0.0.27",
+        host: makeHost("/usr/local/lib/node_modules/t3/dist/bin.mjs"),
+      }).pipe(
+        Effect.provide(makeRecordingRunnerLayer(commands, { failCommand: "loginctl" })),
+        provideHostRefs(dirs.home),
+      );
+
+      const error = yield* service.install.pipe(Effect.flip);
+      assert.isTrue(isCommandError(error));
+      // A leftover unit would make the next connect report "already set up"
+      // even though linger never happened.
+      assert.isFalse(
+        NodeFS.existsSync(NodePath.join(dirs.home, ".config", "systemd", "user", "t3code.service")),
+      );
+      const status = yield* service.status;
       assert.isFalse(status.installed);
     }),
   );

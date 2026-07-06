@@ -45,11 +45,20 @@ export function isEphemeralCacheEntry(entryPath: string): boolean {
 }
 
 /**
+ * systemd expands `%` specifiers in most directive values, including the
+ * `append:` file paths, which take the rest of the line literally and must
+ * NOT be quoted.
+ */
+export function escapeSystemdSpecifiers(value: string): string {
+  return value.replaceAll("%", "%%");
+}
+
+/**
  * systemd word-splits ExecStart and Environment values and expands `%`
  * specifiers, so paths with spaces or percents must be quoted and escaped.
  */
 export function quoteSystemdValue(value: string): string {
-  const escaped = value.replaceAll("%", "%%");
+  const escaped = escapeSystemdSpecifiers(value);
   return /[\s"'\\]/.test(escaped)
     ? `"${escaped.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`
     : escaped;
@@ -86,8 +95,8 @@ export function renderBootServiceUnit(plan: BootServicePlan): string {
     `ExecStart=${quoteSystemdValue(plan.nodePath)} ${quoteSystemdValue(plan.t3EntryPath)} serve`,
     "Restart=always",
     "RestartSec=5",
-    `StandardOutput=append:${plan.logPath}`,
-    `StandardError=append:${plan.logPath}`,
+    `StandardOutput=append:${escapeSystemdSpecifiers(plan.logPath)}`,
+    `StandardError=append:${escapeSystemdSpecifiers(plan.logPath)}`,
     "",
     "[Install]",
     "WantedBy=default.target",
@@ -302,18 +311,30 @@ export const make = Effect.fnUntraced(function* (input: {
       Effect.mapError((cause) => new BootServiceInstallError({ cause })),
     );
 
-    yield* runStep("reloading systemd user units", "systemctl", ["--user", "daemon-reload"]);
-    yield* runStep("enabling the service", "systemctl", [
-      "--user",
-      "enable",
-      "--now",
-      BOOT_SERVICE_UNIT_FILE,
-    ]);
-    // Linger keeps the user manager (and this service) running without an
-    // open session — the whole point on a box reached over SSH. No username
-    // argument: loginctl defaults to the calling user, which is always
-    // right, while $USER can be stale (su without -l) or unset.
-    yield* runStep("enabling lingering for this user", "loginctl", ["enable-linger"]);
+    // If any activation step fails, remove the unit again: a leftover file
+    // would make the next `t3 connect` report the service as already set up
+    // even though it was never enabled or lingered.
+    yield* Effect.gen(function* () {
+      yield* runStep("reloading systemd user units", "systemctl", ["--user", "daemon-reload"]);
+      yield* runStep("enabling the service", "systemctl", [
+        "--user",
+        "enable",
+        BOOT_SERVICE_UNIT_FILE,
+      ]);
+      // restart rather than enable --now: --now does not replace an already
+      // running process, so repairing a stale unit would leave the old
+      // server running until reboot. restart also starts a stopped service.
+      yield* runStep("starting the service", "systemctl", [
+        "--user",
+        "restart",
+        BOOT_SERVICE_UNIT_FILE,
+      ]);
+      // Linger keeps the user manager (and this service) running without an
+      // open session — the whole point on a box reached over SSH. No
+      // username argument: loginctl defaults to the calling user, which is
+      // always right, while $USER can be stale (su without -l) or unset.
+      yield* runStep("enabling lingering for this user", "loginctl", ["enable-linger"]);
+    }).pipe(Effect.tapError(() => fs.remove(unitPath).pipe(Effect.ignore)));
 
     return plan;
   }).pipe(Effect.withSpan("cloud.boot_service.install"));
