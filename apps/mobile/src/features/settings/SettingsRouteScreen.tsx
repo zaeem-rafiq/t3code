@@ -35,6 +35,7 @@ import { runtime } from "../../lib/runtime";
 import { loadPreferences } from "../../lib/storage";
 import { useThemeColor } from "../../lib/useThemeColor";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
+import { AndroidLiveUpdatePreviewSection } from "./AndroidLiveUpdatePreviewSection";
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
 import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
@@ -123,6 +124,8 @@ function LocalSettingsRouteScreen() {
         </SettingsSection>
 
         <ArchivedThreadsSettingsSection />
+
+        {Platform.OS === "android" && __DEV__ ? <AndroidLiveUpdatePreviewSection /> : null}
 
         <AppSettingsSection />
       </ScrollView>
@@ -468,6 +471,8 @@ function ConfiguredSettingsRouteScreen() {
         </SettingsSection>
 
         <ArchivedThreadsSettingsSection />
+
+        {Platform.OS === "android" && __DEV__ ? <AndroidLiveUpdatePreviewSection /> : null}
 
         <AppSettingsSection />
       </ScrollView>
