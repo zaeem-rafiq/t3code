@@ -114,3 +114,13 @@ against remote environments.
 3. How this fork intends to track upstream (merge cadence, whether the
    Antigravity work is meant to be upstreamed as a PR to pingdotgg/t3code, or
    maintained as a permanent fork).
+
+## Session log — 2026-07-09
+
+- **Goal:** Prove the Antigravity provider works end-to-end — binary
+  pass/fail eval harness driving a full turn through the real orchestration
+  engine against a scripted fake ACP agent (kills receipt unknown #1).
+- **Chosen architecture:** B — in-process orchestration-engine integration
+  harness: real AntigravityAdapter + scripted acp-mock-agent, receipt-gated
+  binary evals (E1–E10).
+- **Phase 1 handoff:** `.session/PHASE1-HANDOFF.md`
