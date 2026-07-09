@@ -48,6 +48,16 @@ const CACHED_REFS: VcsListRefsResult = {
   totalCount: 1,
 };
 
+const LIVE_REFS: VcsListRefsResult = {
+  ...CACHED_REFS,
+  refs: [
+    {
+      ...CACHED_REFS.refs[0],
+      name: "release",
+    },
+  ],
+};
+
 function session(client: WsRpcProtocolClient): RpcSession {
   return {
     client,
@@ -126,6 +136,37 @@ describe("cached VCS refs", () => {
         ).pipe(Stream.runHead, Effect.flip);
 
         expect(error).toBe(expectedError);
+      }),
+    ),
+  );
+
+  it.effect("does not emit persisted refs before a live refresh", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const client = {
+          [WS_METHODS.vcsListRefs]: () => Effect.succeed(LIVE_REFS),
+        } as unknown as WsRpcProtocolClient;
+        const supervisor = EnvironmentSupervisor.EnvironmentSupervisor.of({
+          target: TARGET,
+          state: yield* SubscriptionRef.make(CONNECTED_CONNECTION_STATE),
+          session: yield* SubscriptionRef.make(Option.some(session(client))),
+          prepared: yield* SubscriptionRef.make(Option.none<PreparedConnection>()),
+          connect: Effect.void,
+          disconnect: Effect.void,
+          retryNow: Effect.void,
+        } satisfies EnvironmentSupervisor.EnvironmentSupervisor["Service"]);
+
+        const refs = yield* Stream.unwrap(
+          makeCachedVcsRefsChanges({ cwd: "/repo", limit: 100 }).pipe(
+            Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
+            Effect.provideService(
+              Persistence.EnvironmentCacheStore,
+              cacheWithRefs(Option.some(CACHED_REFS)),
+            ),
+          ),
+        ).pipe(Stream.runHead);
+
+        expect(Option.getOrThrow(refs)).toEqual(LIVE_REFS);
       }),
     ),
   );

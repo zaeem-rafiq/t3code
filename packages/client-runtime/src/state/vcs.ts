@@ -67,8 +67,8 @@ export const makeCachedVcsRefsChanges = Effect.fn("CachedVcsRefsState.makeChange
     const refs = yield* request(WS_METHODS.vcsListRefs, input).pipe(
       Effect.provideService(EnvironmentSupervisor, supervisor),
     );
-    yield* SubscriptionRef.set(state, Option.some(refs));
     if (useCache) {
+      yield* SubscriptionRef.set(state, Option.some(refs));
       yield* cache.saveVcsRefs(environmentId, input.cwd, refs).pipe(
         Effect.catch((error) =>
           Effect.logWarning("Could not persist cached Git refs.").pipe(
@@ -97,20 +97,30 @@ export const makeCachedVcsRefsChanges = Effect.fn("CachedVcsRefsState.makeChange
           ),
         ),
         Effect.catch((error) =>
-          SubscriptionRef.get(state).pipe(
-            Effect.flatMap(
-              Option.match({
-                onNone: () => Effect.fail(error),
-                onSome: Effect.succeed,
-              }),
-            ),
-          ),
+          useCache
+            ? SubscriptionRef.get(state).pipe(
+                Effect.flatMap(
+                  Option.match({
+                    onNone: () => Effect.fail(error),
+                    onSome: Effect.succeed,
+                  }),
+                ),
+              )
+            : Effect.fail(error),
         ),
       );
     },
   );
 
-  const cachedRefs = Stream.fromEffect(SubscriptionRef.get(state)).pipe(
+  const cachedRefs = Stream.fromEffect(
+    SubscriptionRef.get(supervisor.state).pipe(
+      Effect.flatMap((connection) =>
+        connection.phase === "connected"
+          ? Effect.succeed(Option.none<VcsListRefsResult>())
+          : SubscriptionRef.get(state),
+      ),
+    ),
+  ).pipe(
     Stream.filterMap((refs) =>
       Option.match(refs, {
         onNone: () => Result.failVoid,
