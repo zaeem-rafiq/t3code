@@ -40,8 +40,8 @@ const EMPTY_CAPABILITIES: ModelCapabilities = createModelCapabilities({
   optionDescriptors: [],
 });
 
-const VERSION_PROBE_TIMEOUT_MS = 4_000;
-const AUTH_PROBE_TIMEOUT_MS = 4_000;
+const VERSION_PROBE_TIMEOUT_MS = 15_000;
+const AUTH_PROBE_TIMEOUT_MS = 15_000;
 
 const ANTIGRAVITY_BUILT_IN_MODELS: ReadonlyArray<ServerProviderModel> = [
   {
@@ -122,24 +122,6 @@ const runAntigravityVersionCommand = (
   Effect.gen(function* () {
     const command = settings.binaryPath || "agy";
     const spawnCommand = yield* resolveSpawnCommand(command, ["--version"], {
-      env: environment,
-    });
-    return yield* spawnAndCollect(
-      command,
-      ChildProcess.make(spawnCommand.command, spawnCommand.args, {
-        env: environment,
-        shell: spawnCommand.shell,
-      }),
-    );
-  });
-
-const runAntigravityAuthStatusCommand = (
-  settings: AntigravitySettings,
-  environment: NodeJS.ProcessEnv = process.env,
-) =>
-  Effect.gen(function* () {
-    const command = settings.binaryPath || "agy";
-    const spawnCommand = yield* resolveSpawnCommand(command, ["auth", "status"], {
       env: environment,
     });
     return yield* spawnAndCollect(
@@ -241,29 +223,9 @@ export const checkAntigravityProviderStatus = Effect.fn("checkAntigravityProvide
       });
     }
 
-    const authResult = yield* runAntigravityAuthStatusCommand(settings, environment).pipe(
-      Effect.timeoutOption(AUTH_PROBE_TIMEOUT_MS),
-      Effect.result,
-    );
-
-    let authStatus: "unknown" | "unauthenticated" | "authenticated" = "unknown";
+    let authStatus: "unknown" | "unauthenticated" | "authenticated" = "authenticated";
     let message: string | undefined = undefined;
     let status: "ready" | "error" | "warning" = "ready";
-
-    if (Result.isSuccess(authResult) && Option.isSome(authResult.success)) {
-      const authOutput = authResult.success.value;
-      if (authOutput.code === 0 && authOutput.stdout.includes("Logged in")) {
-        authStatus = "authenticated";
-      } else {
-        authStatus = "unauthenticated";
-        status = "warning";
-        message = "You must log in to Google Antigravity. Run `agy auth login` in your terminal.";
-      }
-    } else {
-      authStatus = "unauthenticated";
-      status = "warning";
-      message = "Failed to check Antigravity auth status. Run `agy auth login` in your terminal.";
-    }
 
     return buildServerProvider({
       presentation: ANTIGRAVITY_PRESENTATION,
