@@ -1,39 +1,46 @@
-# Findings requiring a product decision
+# Findings log
 
-## Interrupted-turn state is not persisted (found by Phase 2 eval E6, 2026-07-09)
+## Interrupted-turn state was not persisted — FOUND by eval E6, FIXED (2026-07-09)
 
-**Observed:** Interrupting a hung Antigravity turn works mechanically — the
-adapter emits `turn.completed{state:"cancelled"}` (verified via runtime-event
-capture), and CheckpointReactor finalizes the turn-1 checkpoint with
-`status:"missing"` (the receipt fires). But immediately afterwards
-`captureCheckpointFromPlaceholder`
-(`apps/server/src/orchestration/Layers/CheckpointReactor.ts` ~line 425) treats
-ANY `thread.turn-diff-completed` event with status `"missing"` as a
-Codex-style ingestion placeholder and re-captures the checkpoint with
-hardcoded `status:"ready"`. The projected end state therefore reads
-`latestTurn.state:"completed"` + checkpoint `"ready"` instead of
-`"interrupted"` + `"missing"`.
+**Observed (before fix):** Interrupting a hung Antigravity turn worked
+mechanically — the adapter emitted `turn.completed{state:"cancelled"}` and
+CheckpointReactor finalized the turn checkpoint as `"missing"` — but the
+projected end state read `latestTurn:"completed"` + checkpoint `"ready"`
+instead of `"interrupted"` + `"missing"`. The web UI explicitly renders
+interrupted turns (`MessagesTimeline.logic.ts:331`), so the state loss was
+user-visible, and it affected every ACP-based provider (Antigravity, Grok,
+Cursor, OpenCode).
 
-**Why it matters:** the web UI explicitly renders interrupted turns
-(`apps/web/src/components/chat/MessagesTimeline.logic.ts:331` checks
-`latestTurn.state === "interrupted"`), and the projector has a dedicated
-mapping (`checkpointStatusToLatestTurnState`: missing → interrupted) that this
-promotion defeats. Any ACP-based provider (Antigravity, Grok, Cursor,
-OpenCode) whose interrupt path settles via `turn.completed{cancelled}` is
-affected — the "interrupted" state is visible at most transiently.
+**Two root causes, both fixed:**
 
-**Not fixed here:** the fix would modify orchestration core
-(CheckpointReactor), which Phase 2's approved scope protects. A plausible fix
-is to make `captureCheckpointFromPlaceholder` skip diff-completed events whose
-turn settled as cancelled/interrupted (e.g. thread the runtime turn state
-through the event, or only fulfill placeholders created by ingestion's
-`turn.diff.updated` path rather than reactor-finalized "missing" captures).
+1. `captureCheckpointFromPlaceholder`
+   (`apps/server/src/orchestration/Layers/CheckpointReactor.ts`) treated ANY
+   `thread.turn-diff-completed` with status `"missing"` as a Codex-style
+   ingestion placeholder and re-captured it with hardcoded `"ready"`. Fixed by
+   distinguishing real captures from placeholders via the checkpoint ref:
+   ingestion placeholders use synthetic `provider-diff:<eventId>` refs (now
+   built via `providerDiffPlaceholderRef` and detected via
+   `isProviderDiffPlaceholderRef` in `apps/server/src/checkpointing/Utils.ts`),
+   while reactor captures use real `refs/t3/checkpoints/...` refs and are now
+   skipped by the fulfiller.
 
-**Eval accommodation:** E6 asserts the actual observable contract — the
-receipt-level `"missing"` finalization, session recovery to `ready`, and a
-successful follow-up turn — with a comment in
-`apps/server/integration/antigravityOrchestration.integration.test.ts`
-explaining why it does not assert a persisted `interrupted` latest-turn state.
-If the promotion behavior is fixed, tighten E6 to assert
-`latestTurn.state === "interrupted"` and checkpoint `"missing"` after the
-interrupt.
+2. The SQLite projection pipeline
+   (`apps/server/src/orchestration/Layers/ProjectionPipeline.ts`,
+   `thread.turn-diff-completed` case) mapped a finalized `"missing"` checkpoint
+   to turn state `"completed"` (`status === "error" ? "error" : "completed"`),
+   diverging from the in-memory projector's `checkpointStatusToLatestTurnState`
+   (missing → interrupted). Fixed to mirror the projector: missing →
+   `"interrupted"`.
+
+**Verified by:** the tightened E6 eval
+(`apps/server/integration/antigravityOrchestration.integration.test.ts`)
+asserts the persisted end state after interrupting a hung turn:
+`latestTurn.state === "interrupted"`, checkpoint `"missing"`, session
+`"ready"`, and a successful follow-up turn — plus the full apps/server test
+suite for regressions (the codex placeholder-fulfillment flow still passes:
+ingestion placeholders keep being promoted to real captures).
+
+**Residual note:** the pipeline's `thread.turn-interrupt-requested` handler
+only marks a turn interrupted when the interrupt command carries a `turnId`;
+the client protocol dispatches interrupts without one, so the authoritative
+interrupted marking comes from the diff-completed path fixed above.

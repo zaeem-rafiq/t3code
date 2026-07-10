@@ -135,4 +135,12 @@ against remote environments.
   **Defect found by E6:** interrupted-turn state is not persisted —
   `captureCheckpointFromPlaceholder` promotes a cancelled turn's "missing"
   checkpoint to "ready"/"completed"; see `.session/HANDOFF-FAILURES.md`.
-  Remaining: Phase 3 (live `agy` opt-in dialect check, [FRONTIER]).
+- **Defect FIXED (standing order):** two root causes — the placeholder
+  fulfiller promotion in CheckpointReactor (now skips real-ref "missing"
+  captures via `isProviderDiffPlaceholderRef`) and the SQLite projection
+  pipeline mapping finalized "missing" checkpoints to turn state "completed"
+  (now "interrupted", mirroring projector.ts). E6 tightened to assert the
+  persisted interrupted state. Details in `.session/HANDOFF-FAILURES.md`.
+- **Phase 3 landed as opt-in:** live `agy` test gated on
+  `ANTIGRAVITY_BINARY_PATH` (mirrors `CODEX_BINARY_PATH`); skipped in CI.
+  Running it against a real binary remains the last [FRONTIER] validation.

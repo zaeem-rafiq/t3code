@@ -1,3 +1,8 @@
+// @effect-diagnostics nodeBuiltinImport:off
+import * as NodeFSP from "node:fs/promises";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
+
 import {
   CommandId,
   DEFAULT_PROVIDER_INTERACTION_MODE,
@@ -111,6 +116,30 @@ const startTurn = (
     createdAt: nowIso(),
   });
 
+const waitForRequestLogEntry = (
+  logPath: string,
+  expectedContent: string,
+  attempts = 400,
+): Effect.Effect<void> => {
+  const readAttempt = (remainingAttempts: number): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      if (remainingAttempts <= 0) {
+        return yield* Effect.die(
+          new Error(`Timed out waiting for '${expectedContent}' in ${logPath}`),
+        );
+      }
+      const raw = yield* Effect.tryPromise(() => NodeFSP.readFile(logPath, "utf8")).pipe(
+        Effect.orElseSucceed(() => ""),
+      );
+      if (raw.includes(expectedContent)) {
+        return;
+      }
+      yield* Effect.sleep("50 millis");
+      return yield* readAttempt(remainingAttempts - 1);
+    });
+  return readAttempt(attempts);
+};
+
 const waitForQuiesced = (harness: OrchestrationIntegrationHarness, turnCount: number) =>
   harness.waitForReceipt(
     (receipt): receipt is TurnProcessingQuiescedReceipt =>
@@ -190,74 +219,95 @@ it.live(
 );
 
 it.live("interrupts a hung Antigravity turn and recovers on the next turn", () =>
-  withAntigravityHarness(
-    (harness) =>
-      Effect.gen(function* () {
-        yield* seedProjectAndThread(harness);
+  Effect.gen(function* () {
+    const requestLogDir = yield* Effect.promise(() =>
+      NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "antigravity-e6-")),
+    );
+    const requestLogPath = NodePath.join(requestLogDir, "requests.ndjson");
+    return yield* withAntigravityHarness(
+      (harness) =>
+        Effect.gen(function* () {
+          yield* seedProjectAndThread(harness);
 
-        yield* startTurn(harness, {
-          commandId: "cmd-antigravity-turn-hang",
-          messageId: "msg-antigravity-hang-1",
-          text: "Hang forever",
-        });
+          yield* startTurn(harness, {
+            commandId: "cmd-antigravity-turn-hang",
+            messageId: "msg-antigravity-hang-1",
+            text: "Hang forever",
+          });
 
-        yield* harness.waitForThread(
-          THREAD_ID,
-          (entry) => entry.session !== null && entry.latestTurn?.state === "running",
-        );
+          yield* harness.waitForThread(
+            THREAD_ID,
+            (entry) => entry.session !== null && entry.latestTurn?.state === "running",
+          );
+          // Only interrupt once the hung prompt is actually in flight —
+          // cancelling before the prompt RPC is issued would be a no-op and
+          // the first prompt would then hang forever.
+          yield* waitForRequestLogEntry(requestLogPath, '"method":"session/prompt"');
 
-        yield* harness.engine.dispatch({
-          type: "thread.turn.interrupt",
-          commandId: CommandId.make("cmd-antigravity-turn-interrupt"),
-          threadId: THREAD_ID,
-          createdAt: nowIso(),
-        });
+          yield* harness.engine.dispatch({
+            type: "thread.turn.interrupt",
+            commandId: CommandId.make("cmd-antigravity-turn-interrupt"),
+            threadId: THREAD_ID,
+            createdAt: nowIso(),
+          });
 
-        // The adapter settles the cancelled turn with a "missing" checkpoint.
-        // CheckpointReactor's placeholder fulfillment then re-captures it as
-        // "ready", so the projected end state reads completed/ready rather
-        // than interrupted/missing — assert the receipt-level "missing" plus
-        // the recovered session, not a persisted "interrupted" latest turn.
-        const interruptedReceipt = yield* waitForFinalizedCheckpoint(harness, 1);
-        assert.equal(interruptedReceipt.status, "missing");
-        yield* waitForQuiesced(harness, 1);
-        yield* harness.waitForThread(THREAD_ID, (entry) => entry.session?.status === "ready");
-        yield* Effect.log(
-          "E6 PASS: hung turn settled after interrupt — checkpoint finalized as missing, session ready",
-        );
-
-        yield* startTurn(harness, {
-          commandId: "cmd-antigravity-turn-recover",
-          messageId: "msg-antigravity-recover-1",
-          text: "Say hello",
-        });
-
-        const recoveredReceipt = yield* waitForFinalizedCheckpoint(harness, 2);
-        assert.equal(recoveredReceipt.status, "ready");
-        yield* waitForQuiesced(harness, 2);
-        const thread = yield* harness.waitForThread(
-          THREAD_ID,
-          (entry) =>
-            entry.latestTurn?.state === "completed" &&
-            entry.messages.some(
-              (message) =>
-                message.role === "assistant" &&
-                message.streaming === false &&
-                message.text.includes(ASSISTANT_RESPONSE_TEXT),
+          const interruptedReceipt = yield* waitForFinalizedCheckpoint(harness, 1);
+          assert.equal(interruptedReceipt.status, "missing");
+          yield* waitForQuiesced(harness, 1);
+          const interruptedThread = yield* harness.waitForThread(
+            THREAD_ID,
+            (entry) =>
+              entry.session?.status === "ready" && entry.latestTurn?.state === "interrupted",
+          );
+          assert.equal(
+            interruptedThread.checkpoints.some(
+              (checkpoint) =>
+                checkpoint.checkpointTurnCount === 1 && checkpoint.status === "missing",
             ),
-        );
-        assert.equal(
-          thread.checkpoints.some(
-            (checkpoint) => checkpoint.checkpointTurnCount === 2 && checkpoint.status === "ready",
-          ),
-          true,
-        );
-        yield* Effect.log(
-          "E6 PASS: session recovered — follow-up turn completed with ready checkpoint",
-        );
-      }),
-    { mockAgentEnv: { T3_ACP_HANG_FIRST_PROMPT_FOREVER: "1" } },
-  ),
+            true,
+          );
+          yield* Effect.log(
+            "E6 PASS: hung turn interrupted — checkpoint missing, latest turn interrupted, session ready",
+          );
+
+          yield* startTurn(harness, {
+            commandId: "cmd-antigravity-turn-recover",
+            messageId: "msg-antigravity-recover-1",
+            text: "Say hello",
+          });
+
+          const recoveredReceipt = yield* waitForFinalizedCheckpoint(harness, 2);
+          assert.equal(recoveredReceipt.status, "ready");
+          yield* waitForQuiesced(harness, 2);
+          const thread = yield* harness.waitForThread(
+            THREAD_ID,
+            (entry) =>
+              entry.latestTurn?.state === "completed" &&
+              entry.messages.some(
+                (message) =>
+                  message.role === "assistant" &&
+                  message.streaming === false &&
+                  message.text.includes(ASSISTANT_RESPONSE_TEXT),
+              ),
+          );
+          assert.equal(
+            thread.checkpoints.some(
+              (checkpoint) => checkpoint.checkpointTurnCount === 2 && checkpoint.status === "ready",
+            ),
+            true,
+          );
+          yield* Effect.log(
+            "E6 PASS: session recovered — follow-up turn completed with ready checkpoint",
+          );
+        }),
+      {
+        mockAgentEnv: {
+          T3_ACP_HANG_FIRST_PROMPT_FOREVER: "1",
+          T3_ACP_REQUEST_LOG_PATH: requestLogPath,
+        },
+      },
+    );
+  }),
 );
 
 it.live("surfaces a failed Antigravity prompt as a turn-start failure without crashing", () =>
@@ -392,4 +442,82 @@ it.live("captures workspace files written by the Antigravity agent in the turn c
       },
     },
   ),
+);
+
+// Phase 3 opt-in: exercises the real `agy` binary end-to-end. Skipped unless
+// ANTIGRAVITY_BINARY_PATH points at an installed, authenticated Antigravity
+// CLI (mirrors the CODEX_BINARY_PATH escape hatch in the codex suite).
+it.live.skipIf(!process.env.ANTIGRAVITY_BINARY_PATH)(
+  "runs a live Antigravity turn end-to-end against a real agy binary",
+  () =>
+    Effect.acquireUseRelease(
+      makeOrchestrationIntegrationHarness({
+        realAntigravity: { binaryPath: process.env.ANTIGRAVITY_BINARY_PATH ?? "agy" },
+      }),
+      (harness) =>
+        Effect.gen(function* () {
+          const createdAt = nowIso();
+          const liveModelSelection = {
+            instanceId: ProviderInstanceId.make("antigravity"),
+            // "auto" defers to the agent's default model; live catalogs vary.
+            model: "auto",
+          };
+
+          yield* harness.engine.dispatch({
+            type: "project.create",
+            commandId: CommandId.make("cmd-antigravity-live-project-create"),
+            projectId: PROJECT_ID,
+            title: "Antigravity Live Project",
+            workspaceRoot: harness.workspaceDir,
+            defaultModelSelection: liveModelSelection,
+            createdAt,
+          });
+          yield* harness.engine.dispatch({
+            type: "thread.create",
+            commandId: CommandId.make("cmd-antigravity-live-thread-create"),
+            threadId: THREAD_ID,
+            projectId: PROJECT_ID,
+            title: "Antigravity Live Thread",
+            modelSelection: liveModelSelection,
+            interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+            runtimeMode: "full-access",
+            branch: null,
+            worktreePath: harness.workspaceDir,
+            createdAt,
+          });
+          yield* startTurn(harness, {
+            commandId: "cmd-antigravity-live-turn-start",
+            messageId: "msg-antigravity-live-1",
+            text: "Reply with exactly ALPHA.",
+          });
+
+          yield* harness.waitForReceipt(
+            (receipt): receipt is TurnProcessingQuiescedReceipt =>
+              receipt.type === "turn.processing.quiesced" &&
+              receipt.threadId === THREAD_ID &&
+              receipt.checkpointTurnCount === 1,
+            100_000,
+          );
+          const thread = yield* harness.waitForThread(
+            THREAD_ID,
+            (entry) =>
+              entry.session?.status === "ready" &&
+              entry.messages.some(
+                (message) =>
+                  message.role === "assistant" &&
+                  message.streaming === false &&
+                  message.text.trim().length > 0,
+              ),
+            100_000,
+          );
+          assert.equal(
+            thread.checkpoints.some(
+              (checkpoint) => checkpoint.checkpointTurnCount === 1 && checkpoint.status === "ready",
+            ),
+            true,
+          );
+          yield* Effect.log("E10 PASS: live agy turn completed through the orchestration engine");
+        }),
+      (harness) => harness.dispose,
+    ).pipe(Effect.provide(NodeServices.layer)),
 );

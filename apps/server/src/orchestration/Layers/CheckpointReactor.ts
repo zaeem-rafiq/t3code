@@ -22,6 +22,7 @@ import { makeDrainableWorker } from "@t3tools/shared/DrainableWorker";
 import { parseTurnDiffFilesFromUnifiedDiff } from "../../checkpointing/Diffs.ts";
 import {
   checkpointRefForThreadTurn,
+  isProviderDiffPlaceholderRef,
   resolveThreadWorkspaceCwd,
 } from "../../checkpointing/Utils.ts";
 import * as CheckpointStore from "../../checkpointing/CheckpointStore.ts";
@@ -429,6 +430,15 @@ const make = Effect.gen(function* () {
 
     // Only replace placeholders; skip events from our own real captures.
     if (status !== "missing") {
+      return;
+    }
+
+    // A cancelled/interrupted turn is finalized by this reactor with status
+    // "missing" but a real git ref — that is a deliberate terminal state, not
+    // a placeholder. Promoting it to "ready" would erase the interrupted
+    // turn state the projector derives from it. Only ingestion placeholders
+    // (synthetic provider-diff refs, no git ref yet) need fulfillment.
+    if (!isProviderDiffPlaceholderRef(event.payload.checkpointRef)) {
       return;
     }
 
