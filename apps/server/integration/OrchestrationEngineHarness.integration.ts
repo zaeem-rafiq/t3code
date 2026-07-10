@@ -3,6 +3,7 @@ import * as NodeChildProcess from "node:child_process";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
+  AntigravitySettings,
   ApprovalRequestId,
   CodexSettings,
   ProviderDriverKind,
@@ -38,6 +39,7 @@ import { makeProviderRegistryLayer } from "../src/provider/testUtils/providerReg
 import { ProviderSessionDirectoryLive } from "../src/provider/Layers/ProviderSessionDirectory.ts";
 import { ServerSettingsService } from "../src/serverSettings.ts";
 import { makeProviderServiceLive } from "../src/provider/Layers/ProviderService.ts";
+import { makeAntigravityAdapter } from "../src/provider/Layers/AntigravityAdapter.ts";
 import { makeCodexAdapter } from "../src/provider/Layers/CodexAdapter.ts";
 import {
   NoOpProviderEventLoggers,
@@ -80,6 +82,7 @@ import * as VcsProcess from "../src/vcs/VcsProcess.ts";
 import * as AgentAwarenessRelay from "../src/relay/AgentAwarenessRelay.ts";
 
 const decodeCodexSettings = Schema.decodeEffect(CodexSettings);
+const decodeAntigravitySettings = Schema.decodeEffect(AntigravitySettings);
 
 function runGit(cwd: string, args: ReadonlyArray<string>) {
   return NodeChildProcess.execFileSync("git", args, {
@@ -223,6 +226,7 @@ export interface OrchestrationIntegrationHarness {
 interface MakeOrchestrationIntegrationHarnessOptions {
   readonly provider?: ProviderDriverKind;
   readonly realCodex?: boolean;
+  readonly realAntigravity?: { readonly binaryPath: string };
 }
 
 export const makeOrchestrationIntegrationHarness = (
@@ -234,7 +238,9 @@ export const makeOrchestrationIntegrationHarness = (
 
     const provider = options?.provider ?? ProviderDriverKind.make("codex");
     const useRealCodex = options?.realCodex === true;
-    const adapterHarness = useRealCodex
+    const realAntigravity = options?.realAntigravity;
+    const useRealAdapter = useRealCodex || realAntigravity !== undefined;
+    const adapterHarness = useRealAdapter
       ? null
       : yield* makeTestProviderAdapterHarness({
           provider,
@@ -265,34 +271,51 @@ export const makeOrchestrationIntegrationHarness = (
     const providerSessionDirectoryLayer = ProviderSessionDirectoryLive.pipe(
       Layer.provide(ProviderSessionRuntimeRepositoryLive),
     );
-    const realCodexRegistry = Layer.effect(
-      ProviderAdapterRegistry,
-      Effect.gen(function* () {
-        const codexSettings = yield* decodeCodexSettings({});
-        const codexAdapter = yield* makeCodexAdapter(codexSettings);
-        return makeAdapterRegistryMock({
-          [ProviderDriverKind.make("codex")]: codexAdapter,
-        });
-      }),
-    ).pipe(
-      Layer.provideMerge(ServerConfig.layerTest(workspaceDir, rootDir)),
-      Layer.provideMerge(NodeServices.layer),
-      Layer.provideMerge(providerSessionDirectoryLayer),
+    const realAdapterLayerDependencies = <E, R>(
+      layer: Layer.Layer<ProviderAdapterRegistry, E, R>,
+    ) =>
+      layer.pipe(
+        Layer.provideMerge(ServerConfig.layerTest(workspaceDir, rootDir)),
+        Layer.provideMerge(NodeServices.layer),
+        Layer.provideMerge(providerSessionDirectoryLayer),
+      );
+    const realCodexRegistry = realAdapterLayerDependencies(
+      Layer.effect(
+        ProviderAdapterRegistry,
+        Effect.gen(function* () {
+          const codexSettings = yield* decodeCodexSettings({});
+          const codexAdapter = yield* makeCodexAdapter(codexSettings);
+          return makeAdapterRegistryMock({
+            [ProviderDriverKind.make("codex")]: codexAdapter,
+          });
+        }),
+      ),
     );
-    const providerEventLoggersLayer = Layer.succeed(ProviderEventLoggers, NoOpProviderEventLoggers);
-    const providerLayer = useRealCodex
-      ? makeProviderServiceLive().pipe(
-          Layer.provide(providerSessionDirectoryLayer),
-          Layer.provide(realCodexRegistry),
-          Layer.provide(AnalyticsService.layerTest),
-          Layer.provide(providerEventLoggersLayer),
+    const antigravityRegistry = realAntigravity
+      ? realAdapterLayerDependencies(
+          Layer.effect(
+            ProviderAdapterRegistry,
+            Effect.gen(function* () {
+              const antigravitySettings = yield* decodeAntigravitySettings({
+                binaryPath: realAntigravity.binaryPath,
+              });
+              const antigravityAdapter = yield* makeAntigravityAdapter(antigravitySettings);
+              return makeAdapterRegistryMock({
+                [ProviderDriverKind.make("antigravity")]: antigravityAdapter,
+              });
+            }),
+          ),
         )
-      : makeProviderServiceLive().pipe(
-          Layer.provide(providerSessionDirectoryLayer),
-          Layer.provide(fakeRegistry!),
-          Layer.provide(AnalyticsService.layerTest),
-          Layer.provide(providerEventLoggersLayer),
-        );
+      : null;
+    const providerEventLoggersLayer = Layer.succeed(ProviderEventLoggers, NoOpProviderEventLoggers);
+    const adapterRegistryLayer =
+      antigravityRegistry ?? (useRealCodex ? realCodexRegistry : fakeRegistry!);
+    const providerLayer = makeProviderServiceLive().pipe(
+      Layer.provide(providerSessionDirectoryLayer),
+      Layer.provide(adapterRegistryLayer),
+      Layer.provide(AnalyticsService.layerTest),
+      Layer.provide(providerEventLoggersLayer),
+    );
     const providerRegistryLayer = makeProviderRegistryLayer();
 
     const checkpointStoreLayer = CheckpointStore.layer.pipe(Layer.provide(VcsDriverRegistry.layer));

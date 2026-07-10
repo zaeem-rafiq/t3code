@@ -23,6 +23,7 @@ it (no behavior change).
 
 STEP 2 — Add a real-Antigravity path to the integration harness.
 In apps/server/integration/OrchestrationEngineHarness.integration.ts:
+
 - Extend MakeOrchestrationIntegrationHarnessOptions (lines ~223-226) with
   `realAntigravity?: { readonly binaryPath: string }`.
 - Clone realCodexRegistry (lines ~268-281) into an antigravityRegistry:
@@ -41,6 +42,7 @@ STEP 3 — Write the Phase 1 test.
 Create apps/server/integration/antigravityOrchestration.integration.test.ts
 modeled on orchestrationEngine.integration.test.ts (read its happy-path test
 and seedProjectAndThread first). Specifics that differ from the codex test:
+
 - Build the wrapper with extraEnv
   { T3_ACP_PROMPT_RESPONSE_TEXT: "antigravity-e2e-ok" } and pass
   realAntigravity: { binaryPath: wrapper.binaryPath } to
@@ -55,15 +57,15 @@ and seedProjectAndThread first). Specifics that differ from the codex test:
   message, then assert ALL of (binary pass/fail, print one line per check):
   E1 waitForReceipt(turn.processing.quiesced for the thread)
   E2 waitForReceipt(checkpoint.diff.finalized, checkpointTurnCount===1,
-     status==="ready")
+  status==="ready")
   E3 waitForThread(session.status==="ready" && assistant message text
-     contains "antigravity-e2e-ok" && streaming===false &&
-     checkpoints.length===1)
+  contains "antigravity-e2e-ok" && streaming===false &&
+  checkpoints.length===1)
   E4 sqlite checkpoint row status "ready" with files: [] (copy the codex
-     test's query helper)
+  test's query helper)
   E5 git refs checkpointRefForThreadTurn(threadId, 0) and (threadId, 1)
-     exist (gitRefExists helper) and seeded README content intact
-     (gitShowFileAtRef).
+  exist (gitRefExists helper) and seeded README content intact
+  (gitShowFileAtRef).
 
 PROTECTED PATHS — do not modify: anything under apps/server/src/ EXCEPT the
 two named test files (acpMockAgentWrapper.ts is new under testUtils;
@@ -72,10 +74,10 @@ packages/effect-acp/src/; apps/server/scripts/acp-mock-agent.ts; patches/;
 .repos/; docs/ (except nothing needed).
 
 VERIFY (all must pass; this is the measurable end state):
-  vp test run apps/server/integration/antigravityOrchestration.integration.test.ts
-  vp test run apps/server/integration/orchestrationEngine.integration.test.ts
-  vp test run apps/server/src/provider/Layers/AntigravityAdapter.test.ts
-  vp check && vp run typecheck
+vp test run apps/server/integration/antigravityOrchestration.integration.test.ts
+vp test run apps/server/integration/orchestrationEngine.integration.test.ts
+vp test run apps/server/src/provider/Layers/AntigravityAdapter.test.ts
+vp check && vp run typecheck
 Then run the new file 5 more times in a loop to check determinism.
 
 PROOF OF SUCCESS: paste the vp test output showing the new file passing, plus

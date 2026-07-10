@@ -21,6 +21,7 @@ against remote environments.
 ## What exists and works vs half-built vs dead
 
 **Exists and works (tested, shipped):**
+
 - `apps/server` — the core coordinator: WebSocket + HTTP server,
   ServerPushBus (ordered pushes), ServerReadiness startup gate,
   OrchestrationEngine, ProviderService, CheckpointReactor, queue-backed
@@ -40,6 +41,7 @@ against remote environments.
   `vp run typecheck` (+ `lint:mobile` for native changes).
 
 **Half-built / in flight:**
+
 - `apps/mobile` (Expo/React Native) — very active recent churn: split-view
   iPad layout, Live Activity fixes, scroll/back-swipe fixes, many patched
   native deps; clearly usable but stabilizing.
@@ -47,7 +49,7 @@ against remote environments.
   within the last ~15 commits; `docs/cloud/` describes the auth flow.
 - `infra/relay` — Cloudflare-targeted relay (Alchemy, Drizzle, Postgres,
   Clerk backend) for the remote story; `docs/architecture/remote.md` is
-  explicitly a *target* architecture, not shipped product.
+  explicitly a _target_ architecture, not shipped product.
 - Grok provider — implemented and tested but absent from README's supported
   list (Codex/Claude/Cursor/OpenCode only).
 - `.plans/` — nine numbered refactor plans (typed IPC boundaries, ChatView
@@ -56,6 +58,7 @@ against remote environments.
   thread archiving, project sorting, message queueing).
 
 **Dead / inert:**
+
 - `experiments/messages-glass-lab` — a UI experiment sandbox.
 - Nothing else obviously abandoned; only 2 TODO/FIXME markers in source.
 - `.repos/` vendored reference repos are intentionally read-only and not
