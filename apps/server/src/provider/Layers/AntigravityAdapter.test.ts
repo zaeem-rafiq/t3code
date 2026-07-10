@@ -1,9 +1,3 @@
-// @effect-diagnostics nodeBuiltinImport:off
-import * as NodePath from "node:path";
-import * as NodeOS from "node:os";
-import * as NodeFSP from "node:fs/promises";
-import * as NodeURL from "node:url";
-
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -24,27 +18,9 @@ import {
 } from "@t3tools/contracts";
 
 import { ServerConfig } from "../../config.ts";
+import { makeAcpMockAgentWrapper } from "../testUtils/acpMockAgentWrapper.ts";
 import { makeAntigravityAdapter } from "./AntigravityAdapter.ts";
 const decodeAntigravitySettings = Schema.decodeSync(AntigravitySettings);
-
-const __dirname = NodePath.dirname(NodeURL.fileURLToPath(import.meta.url));
-const mockAgentPath = NodePath.join(__dirname, "../../../scripts/acp-mock-agent.ts");
-const mockAgentCommand = process.execPath;
-
-async function makeMockAntigravityWrapper(extraEnv?: Record<string, string>) {
-  const dir = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "antigravity-acp-mock-"));
-  const wrapperPath = NodePath.join(dir, "fake-antigravity.sh");
-  const envExports = Object.entries(extraEnv ?? {})
-    .map(([key, value]) => `export ${key}=${JSON.stringify(value)}`)
-    .join("\n");
-  const script = `#!/bin/sh
-${envExports}
-exec ${JSON.stringify(mockAgentCommand)} ${JSON.stringify(mockAgentPath)} "$@"
-`;
-  await NodeFSP.writeFile(wrapperPath, script, "utf8");
-  await NodeFSP.chmod(wrapperPath, 0o755);
-  return wrapperPath;
-}
 
 const antigravityAdapterTestLayer = ServerConfig.layerTest(process.cwd(), {
   prefix: "t3code-antigravity-adapter-test-",
@@ -59,7 +35,7 @@ it.layer(antigravityAdapterTestLayer)("AntigravityAdapterLive", (it) => {
   it.effect("starts a session and maps mock ACP prompt flow to runtime events", () =>
     Effect.gen(function* () {
       const threadId = ThreadId.make("antigravity-mock-thread");
-      const wrapperPath = yield* Effect.promise(() => makeMockAntigravityWrapper());
+      const wrapperPath = yield* Effect.promise(() => makeAcpMockAgentWrapper());
       const adapter = yield* makeTestAdapter(wrapperPath);
 
       const runtimeEvents: ProviderRuntimeEvent[] = [];

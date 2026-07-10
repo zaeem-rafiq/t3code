@@ -9,6 +9,20 @@ export function checkpointRefForThreadTurn(threadId: ThreadId, turnCount: number
   );
 }
 
+// ProviderRuntimeIngestion dispatches placeholder checkpoints (no git ref yet)
+// with a synthetic ref under this prefix; CheckpointReactor later replaces
+// them with real git-ref-based captures. Real captures use
+// CHECKPOINT_REFS_PREFIX refs, so the prefix distinguishes the two.
+export const PROVIDER_DIFF_PLACEHOLDER_REF_PREFIX = "provider-diff:";
+
+export function providerDiffPlaceholderRef(eventId: string): CheckpointRef {
+  return CheckpointRef.make(`${PROVIDER_DIFF_PLACEHOLDER_REF_PREFIX}${eventId}`);
+}
+
+export function isProviderDiffPlaceholderRef(checkpointRef: string): boolean {
+  return checkpointRef.startsWith(PROVIDER_DIFF_PLACEHOLDER_REF_PREFIX);
+}
+
 export function resolveThreadWorkspaceCwd(input: {
   readonly thread: {
     readonly projectId: ProjectId;
