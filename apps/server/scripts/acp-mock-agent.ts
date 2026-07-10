@@ -40,6 +40,8 @@ const failSetConfigOption = process.env.T3_ACP_FAIL_SET_CONFIG_OPTION === "1";
 const exitOnSetConfigOption = process.env.T3_ACP_EXIT_ON_SET_CONFIG_OPTION === "1";
 const promptResponseText = process.env.T3_ACP_PROMPT_RESPONSE_TEXT;
 const promptDelayMs = Number(process.env.T3_ACP_PROMPT_DELAY_MS ?? "0");
+const writeFilePath = process.env.T3_ACP_WRITE_FILE_PATH;
+const writeFileContent = process.env.T3_ACP_WRITE_FILE_CONTENT ?? "mock write\n";
 const permissionOptionIds = {
   allowOnce: process.env.T3_ACP_ALLOW_ONCE_OPTION_ID ?? "allow-once",
   allowAlways: process.env.T3_ACP_ALLOW_ALWAYS_OPTION_ID ?? "allow-always",
@@ -864,6 +866,12 @@ const program = Effect.gen(function* () {
           ],
         },
       });
+
+      if (writeFilePath) {
+        yield* Effect.sync(() => {
+          NodeFS.writeFileSync(writeFilePath, writeFileContent, "utf8");
+        });
+      }
 
       yield* agent.client.sessionUpdate({
         sessionId: requestedSessionId,

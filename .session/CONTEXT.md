@@ -127,3 +127,12 @@ against remote environments.
   harness: real AntigravityAdapter + scripted acp-mock-agent, receipt-gated
   binary evals (E1–E10).
 - **Phase 1 handoff:** `.session/PHASE1-HANDOFF.md`
+- **Phase 1 complete** — happy-path eval E1–E5 green, deterministic 5/5
+  (commit `c17991f`).
+- **Phase 2 complete** — failure-mode evals E6–E9 green (interrupt+recover,
+  failed prompt, missing binary, agent-written file diff), deterministic 5/5.
+  Mock agent gained additive `T3_ACP_WRITE_FILE_PATH`/`_CONTENT` behavior.
+  **Defect found by E6:** interrupted-turn state is not persisted —
+  `captureCheckpointFromPlaceholder` promotes a cancelled turn's "missing"
+  checkpoint to "ready"/"completed"; see `.session/HANDOFF-FAILURES.md`.
+  Remaining: Phase 3 (live `agy` opt-in dialect check, [FRONTIER]).
